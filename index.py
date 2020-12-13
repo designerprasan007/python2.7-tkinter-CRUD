@@ -2,7 +2,8 @@ from Tkinter import *
 # from Tkinter import ttk
 import ttk
 import pymysql
-from tkcalendar import Calendar, DateEntry
+import tkMessageBox
+
 
 
 class Student:
@@ -25,6 +26,9 @@ class Student:
 		self.contact_var=StringVar()
 		self.addr_txt=StringVar()
 		
+		# search variables
+		self.search_by=StringVar()
+		self.search_val=StringVar()
 
 		# manage side
 
@@ -35,7 +39,7 @@ class Student:
 		manage_title.grid(row=0, columnspan=2, pady=20, padx=20)
 
 
-		lbl_roll = Label(manage, text='Roll Num', font=("times of roman", 20), bg='yellow', fg='black')
+		lbl_roll = Label(manage, text='roll_num', font=("times of roman", 20), bg='yellow', fg='black')
 		lbl_roll.grid(row=1, column=0, pady=10, padx=20, sticky='w')
 	
 		roll_txt = Entry(manage, textvar=self.Roll_no_var, font=("times of roman", 15), bd=5, relief=GROOVE)
@@ -83,8 +87,8 @@ class Student:
 		btn_frame.place(x=15, y=580, width=480)  
 
 		addbtn =Button(btn_frame, text='Add', width=8, command=self.add_students).grid(row=0, column=0, padx=10,pady=10)
-		editbtn =Button(btn_frame, text='Edit', width=8).grid(row=0, column=1, padx=10,pady=10)
-		deletebtn =Button(btn_frame, text='Delete', width=8).grid(row=0, column=2, padx=10,pady=10)
+		editbtn =Button(btn_frame, text='Update', width=8, command=self.update_student).grid(row=0, column=1, padx=10,pady=10)
+		deletebtn =Button(btn_frame, text='Delete', width=8, command=self.delete_student).grid(row=0, column=2, padx=10,pady=10)
 		clearbtn =Button(btn_frame, text='Clear', width=8, command=self.clear_vals).grid(row=0, column=3, padx=10,pady=10)
 
 		# detail side
@@ -95,16 +99,16 @@ class Student:
 		lbl_search = Label(detail, text='Search By', font=("times of roman", 20), bg='yellow', fg='black')
 		lbl_search.grid(row=0, column=0, pady=10, padx=20, sticky='w')
 	
-		srch_combo = ttk.Combobox(detail, width=10, font=("times of roman", 15), state='readonly')	
+		srch_combo = ttk.Combobox(detail, textvar=self.search_by, width=10, font=("times of roman", 15), state='readonly')	
 		srch_combo['values']=('Roll num','Name','Contact')
 		srch_combo.grid(row=0, column=1, pady=10, padx=20, sticky='w')
 
-		search_text = Entry(detail, font=("times of roman", 15), width=10, bd=5, relief=GROOVE)
+		search_text = Entry(detail, textvar=self.search_val, font=("times of roman", 15), width=10, bd=5, relief=GROOVE)
 		search_text.grid(row=0, column=2, pady=10, padx=10)
  
 
-		searchbtn =Button(detail, text='Search', width=8).grid(row=0, column=3, padx=10,pady=10)
-		showallbtn =Button(detail, text='Show', width=8).grid(row=0, column=4, padx=10,pady=10)
+		searchbtn =Button(detail, text='Search', command=self.search_student, width=8).grid(row=0, column=3, padx=10,pady=10)
+		showallbtn =Button(detail, text='Show', command=self.fetch_students, width=8).grid(row=0, column=4, padx=10,pady=10)
 
 		# table section
 		Table_frame = Frame(detail, bd=4, relief=RIDGE, bg='yellow')
@@ -133,27 +137,32 @@ class Student:
 		self.Student_table.column('contact', width=127)
 		self.Student_table.column('dob', width=127)
 		self.Student_table.column('address', width=122)
-
 		self.Student_table.pack(fill=BOTH, expand=1)
+		self.Student_table.bind("<ButtonRelease-1>", self.get_cursor)
 
 		self.fetch_students()
 
 		# add user to db
 	def add_students(self):
-		conn = pymysql.connect(host='localhost',user='root',password='root',database='python_student')
-		cur = conn.cursor()
-		cur.execute('insert into students values(%s,%s,%s,%s,%s,%s,%s)',(self.Roll_no_var.get(),
-																		 self.name_var.get(),
-																		 self.emial_var.get(),
-																		 self.gender_var.get(),
-																		 self.contact_var.get(),
-																		 self.dob_var.get(),
-																		 self.addr_txt.get('1.0',END)	
-																		))
-		conn.commit()
-		self.fetch_students()
-		self.clear_vals()
-		conn.close
+		if self.Roll_no_var.get() == "" or self.name_var.get() == "":
+			 tkMessageBox.showerror("Error", "All Fields Required")
+		else:	
+			conn = pymysql.connect(host='localhost',user='root',password='root',database='python_student')
+			cur = conn.cursor()
+			cur.execute('insert into students values(%s,%s,%s,%s,%s,%s,%s)',(self.Roll_no_var.get(),
+																			 self.name_var.get(),
+																			 self.emial_var.get(),
+																			 self.gender_var.get(),
+																			 self.contact_var.get(),
+																			 self.dob_var.get(),
+																			 self.addr_txt.get('1.0',END)	
+																			))
+			conn.commit()
+			self.fetch_students()
+			self.clear_vals()
+			conn.close
+			tkMessageBox.showinfo("Success", "Student added")
+
 
 	def fetch_students(self):
 		conn = pymysql.connect(host='localhost',user='root',password='root',database='python_student')
@@ -180,6 +189,60 @@ class Student:
 		self.dob_var.set('') 
 
 			
+		# get selected row values
+	def get_cursor(self, eve):
+		self.clear_vals()
+		current_row = self.Student_table.focus()
+		row_content = self.Student_table.item(current_row)
+		content= row_content['values']
+		self.Roll_no_var.set(content[0])
+		self.name_var.set(content[1]) 
+		self.emial_var.set(content[2]) 
+		self.gender_var.set(content[3]) 
+		self.addr_txt.insert(END, content[6]) 
+		self.contact_var.set(content[4]) 
+		self.dob_var.set(content[5]) 
+
+
+# update student data
+	def update_student(self):
+		conn = pymysql.connect(host='localhost',user='root',password='root',database='python_student')
+		cur = conn.cursor()
+		cur.execute('update students set name = %s, email = %s, gender = %s, contact = %s, dob = %s, address = %s where roll_num = %s',
+			(self.name_var.get(), self.emial_var.get(), self.gender_var.get(), self.contact_var.get(),self.dob_var.get(),self.addr_txt.get('1.0',END),self.Roll_no_var.get()))
+		conn.commit()
+		self.fetch_students()
+		self.clear_vals()
+		conn.close	
+
+	# update student data
+	def delete_student(self):
+		conn = pymysql.connect(host='localhost',user='root',password='root',database='python_student')
+		cur = conn.cursor()
+		cur.execute('delete from students where roll_num = %s',self.Roll_no_var.get())
+		conn.commit()
+		self.fetch_students()
+		self.clear_vals()
+		conn.close			
+
+
+	# search  student
+
+	def search_student(self):
+		print(self.search_by.get().lower(), str(self.search_val.get()))
+		conn = pymysql.connect(host='localhost',user='root',password='root',database='python_student')
+		cur = conn.cursor()
+		cur.execute("select * from students where "+str(self.search_by.get().lower())+" like '%"+str(self.search_val.get())+"%'")
+		rows = cur.fetchall()
+		if len(rows) == 0:
+			self.Student_table.delete(*self.Student_table.get_children())
+			self.Student_table.insert('', END, values='NO DATA FOUND')
+		else :
+			self.Student_table.delete(*self.Student_table.get_children())
+			for row in rows:
+				self.Student_table.insert('', END, values=row)
+				conn.commit()
+		conn.close()
 
 root = Tk()
 ob = Student(root)
