@@ -1,5 +1,4 @@
 from Tkinter import *
-# from Tkinter import ttk
 import ttk
 import pymysql
 import tkMessageBox
